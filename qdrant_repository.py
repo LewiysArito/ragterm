@@ -1,12 +1,16 @@
-from dataclasses import dataclass
-from qdrant_client import QdrantClient, models
-
-from langchain_core.documents import Document
-from sentence_transformers import SentenceTransformer
 import re
 import abc
-from typing import List, Dict, Any, Optional, Union
 import uuid
+
+from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
+from qdrant_client import models
+from langchain_core.documents import Document
+
+from config import (
+    QDRANT_CLIENT, EMBEDDING_MODEL,
+    QDRANT_LIMIT_RESULT_SEARCH, CHUNK_NOT_EXTRACT_SYMBOLS
+)
 
 @dataclass(frozen=True)
 class CustomPage():
@@ -19,40 +23,67 @@ class CustomChunk():
     page_content: str
     page_link: Optional[str]
 
-
 class AbstractVectorDB(abc.ABC):
-    """Абстрактный класс для работы с векторными базами данных"""
-    
+    """
+    Abstract class for working with vector databases
+    """
+
     @abc.abstractmethod
     def upload_chunks(self, chunks: List[Document], source: str) -> None:
-        """Загружает чанки в векторную БД"""
-        pass
-    
+        """
+        Uploads chunks to the vector database
+        """
+        NotImplementedError
+
     @abc.abstractmethod
     def upload_pages(self, pages: List[Document], source: str) -> None:
-        """Загружает страницы в векторную БД"""
-        pass
-    
+        """
+        Uploads pages to the vector database
+        """
+        NotImplementedError
+
     @abc.abstractmethod
-    def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Поиск в векторной БД"""
-        pass
+    def search(self, query: str, limit: int, score_threshold: float) -> List[Dict[str, Any]]:
+        """
+        Searches in the vector database
+        """
+        NotImplementedError
+
+    @abc.abstractmethod
+    def get_all_collections(self):
+        """
+        Retrieves all collections from the vector database
+        """
+        NotImplementedError
+
+    @abc.abstractmethod
+    def get_chunk_by_page(
+        self,
+        page: int,
+        collection: str
+    ):
+        """
+        Retrieves a chunk by page from the vector database
+        """
+        NotImplementedError
 
 class QdrantRepository(AbstractVectorDB):
-    """Реализация для работы с Qdrant"""
-    
+    """
+    Implementation for working with Qdrant
+    """
+
     def __init__(self, 
-            client: QdrantClient, 
-            model: SentenceTransformer,
-            chunk_size: int = 800,
-            chunk_overlap: int = 150):
+            client = QDRANT_CLIENT, 
+            model  = EMBEDDING_MODEL,
+        ):
         self.client = client
         self.model = model
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        
-    def _clean_russian_text(self, text: str, max_length: int = 2000) -> str:
-        """Улучшенная очистка русского текста"""
+    
+    def _clean_text(self, text: str, max_length: int = 2000,
+        single_letter_words = CHUNK_NOT_EXTRACT_SYMBOLS):
+        """
+        Function text cleaning
+        """
         if not text or not isinstance(text, str):
             return ""
         
@@ -68,7 +99,7 @@ class QdrantRepository(AbstractVectorDB):
         
         for word in words:
             if (len(word) == 1 and 
-                word in ["а", "в", "к", "о", "с", "у", "и"]):
+                word in single_letter_words):
                 clean_words.append(word)
             elif (len(word) == 1 and 
                   (word.isdigit() or word in ".,!?;:")):
@@ -95,9 +126,23 @@ class QdrantRepository(AbstractVectorDB):
                 clean_text = truncated + "..."
         
         return clean_text.strip()
+
+    def _clean_russian_text(self, text: str) -> str:
+        """
+        Cleans Russian text
+        """
+        return self._clean_text(text, single_letter_words=["а", "в", "к", "о", "с", "у", "и"])
+    
+    def _clean_english_text(self, text: str) -> str:
+        """
+        Cleans English text
+        """
+        return self._clean_text(text)
     
     def _ensure_collection_exists(self, collection: str) -> None:
-        """Создает коллекцию если она не существует"""
+        """
+        Creates a collection if it does not exist
+        """
         if not self.client.collection_exists(collection):
             self.client.create_collection(
                 collection_name=collection,
@@ -106,14 +151,17 @@ class QdrantRepository(AbstractVectorDB):
                     distance=models.Distance.COSINE
                 )
             )
-    
+
     def upload_chunks(self, collection: str, chunks: List[CustomChunk], source: str) -> None:
-        """Загружает чанки в векторную БД"""
+    
+        """
+        Uploads chunks to the vector database
+        """
         texts = []
         clean_chunks: List[CustomChunk] = []
         
         for chunk in chunks:
-            clean_text = self._clean_russian_text(chunk.page_content)
+            clean_text = self._clean_text(chunk.page_content)
             if len(clean_text.strip()) > 50:
                 texts.append(clean_text)
                 clean_chunks.append(chunk)
@@ -134,7 +182,7 @@ class QdrantRepository(AbstractVectorDB):
                     "number_page": int(chunk.number_page) + 1,
                     "source": source,
                     "chunk_index": i,
-                    "page_link": chunk.page_link, #ссылка на коллекцию где страницы целиком находятся
+                    "page_link": chunk.page_link, #link
                     "type": "chunk"
                 }
             ))
@@ -145,12 +193,14 @@ class QdrantRepository(AbstractVectorDB):
         )
     
     def upload_pages(self, collection: str, pages: List[CustomPage], source: str) -> None:
-        """Загружает полные страницы в векторную БД"""
+        """
+        Uploads full pages to the vector database
+        """
         texts = []
         clean_pages: List[CustomPage] = []
         
         for page in pages:
-            clean_text = self._clean_russian_text(page.page_content)
+            clean_text = self._clean_text(page.page_content)
             if len(clean_text.strip()) > 50:
                 texts.append(clean_text)
                 clean_pages.append(page)
@@ -180,8 +230,10 @@ class QdrantRepository(AbstractVectorDB):
             points=points
         )
     
-    def search(self, collection: str, query: str, limit: int = 5, score_threshold: float = 0.4) -> List[Dict[str, Any]]:
-        """Поиск в векторной БД"""
+    def search(self, collection: str, query: str, limit = QDRANT_LIMIT_RESULT_SEARCH, score_threshold: float = 0.4) -> List[Dict[str, Any]]:
+        """
+        Searches in the vector database
+        """
         query_embedding = self.model.encode([query]).tolist()[0]
         search_result = self.client.search(
             collection_name=collection,
@@ -198,12 +250,20 @@ class QdrantRepository(AbstractVectorDB):
             "type": hit.payload.get("type", "chunk")
         } for hit in search_result]
 
+    def get_all_collections(self) -> list[str]:
+        """
+        Retrieves all collections from the vector database
+        """
+        return [collection.name for collection in self.client.get_collections().collections]
+
     def get_chunk_by_page(
         self,
         page: int,
         collection: str
     ):
-        """Получает определенную страницу документа"""
+        """
+        Retrieves a chunk (page) of a document
+        """
 
         search_result = self.client.scroll(
             collection_name=collection,
