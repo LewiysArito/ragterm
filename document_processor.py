@@ -4,18 +4,20 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PDFPlumberLoader
 
+from config import CHUNK_SIZE, CHUNK_OVERLAP
+
 class AbstractDocumentProcessor(abc.ABC):
-    """Абстрактный класс для обработки документов"""
+    """Abstract class for handling documents"""
     
     @abc.abstractmethod
     def load_and_split_file(self, chunks: List[Document], source: str) -> None:
-        """Загружает документ и возвращает страницы и чанки"""
+        """Loads document and returns page content and chunks"""
         pass
 
 class PDFProcessor:
-    """Класс для обработки PDF файлов"""
+    """Class for handling pdf files"""
     
-    def __init__(self, chunk_size: int = 800, chunk_overlap: int = 200):
+    def __init__(self, chunk_size = CHUNK_SIZE, chunk_overlap = CHUNK_OVERLAP):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.text_splitter = RecursiveCharacterTextSplitter(
@@ -26,7 +28,7 @@ class PDFProcessor:
         )
     
     def load_and_split_file(self, file_path: str) -> Dict[str, List[Document]]:
-        """Загружает документ и возвращает страницы и чанки"""
+        """Loads document and returns page content and chunks"""
         loader = PDFPlumberLoader(file_path)
         documents = loader.load()
         
@@ -40,7 +42,8 @@ class PDFProcessor:
         }
     
     def _extract_full_pages(self, documents: List[Document]) -> List[Document]:
-        """Извлекает полный текст каждой страницы"""
+        """Extracts full text for every page"""
+
         page_texts = {}
         
         for doc in documents:

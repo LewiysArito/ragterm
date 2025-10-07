@@ -58,7 +58,7 @@ def initialize_embedding_model()->SentenceTransformer:
 def initialize_qdrant()->Tuple[QdrantClient, int, int, str]:
     QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
     QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
-    QDRANT_COUNT_RESULT_SEARCH =  int(os.getenv("QDRANT_COUNT_RESULT_SEARCH", 12))
+    QDRANT_LIMIT_RESULT_SEARCH =  int(os.getenv("QDRANT_LIMIT_RESULT_SEARCH", 12))
     QDRANT_COUNT_DOCUMENT_FOR_RAG = int(os.getenv("QDRANT_COUNT_RESULT_SEARCH", 3))
     QDRANT_USE_GUARD = os.getenv("QDRANT_USE_GUARD") in ["True", "1", "true"]
     
@@ -68,12 +68,12 @@ def initialize_qdrant()->Tuple[QdrantClient, int, int, str]:
         logger.info(f"Successfully connected to Qdrant at \
                      {"https" if QDRANT_USE_GUARD else "http"}://{QDRANT_HOST}:{QDRANT_PORT}")
         logger.debug((
-            f"Successfully connected to Qdrant at {QDRANT_COUNT_RESULT_SEARCH}"
+            f"Successfully connected to Qdrant at {QDRANT_LIMIT_RESULT_SEARCH}"
             "{QDRANT_COUNT_DOCUMENT_FOR_RAG}"
         ))
 
         logger.info(f"Successfully connected to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}")
-        return (client, QDRANT_COUNT_RESULT_SEARCH, QDRANT_COUNT_DOCUMENT_FOR_RAG, QDRANT_USE_GUARD)
+        return (client, QDRANT_LIMIT_RESULT_SEARCH, QDRANT_COUNT_DOCUMENT_FOR_RAG, QDRANT_USE_GUARD)
     except Exception as e:
         logger.error(f"Failed to connect to Qdrant: {e}")
         raise
@@ -128,16 +128,15 @@ def initialize_ollama()->Tuple[OllamaClient, str, float]:
         raise
 
 def initialize_chunk() -> Tuple[int, int, List[str]]:
-    CHUNK_SIZE = os.getenv("CHUNK_SIZE", 800)
-    CHUNK_OVERLAP = os.getenv("CHUNK_OVERLAP", 200)
+    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 800))
+    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 200))
 
     #Single letters that can be words found among the uploaded documents 
-    CHUNK_NOT_EXTRACT_SYMBOL = list(map(lambda value: value.split(),
-         os.getenv("CHUNK_NOT_EXTRACT_SYMBOL","a,o,i")).split(","))
+    CHUNK_NOT_EXTRACT_SYMBOLS = list(map(lambda value: value.strip(),
+         os.getenv("CHUNK_NOT_EXTRACT_SYMBOL","a,o,i,x,y").split(",")))
     
-    logger.debug(f"Chunk parameters - size: {CHUNK_SIZE}, overlap: {CHUNK_OVERLAP}")
-    logger 
-    return (CHUNK_SIZE, CHUNK_OVERLAP, CHUNK_NOT_EXTRACT_SYMBOL)
+    logger.debug(f"Chunk parameters - size: {CHUNK_SIZE}, overlap: {CHUNK_OVERLAP} chunk not extract symbol: {CHUNK_NOT_EXTRACT_SYMBOLS}")
+    return (CHUNK_SIZE, CHUNK_OVERLAP, CHUNK_NOT_EXTRACT_SYMBOLS)
 
 def get_document_dir() -> str:
     DOCUMENT_DIR = "files"
@@ -150,8 +149,8 @@ OLLAMA_CLIENT, OLLAMA_MODEL, OLLAMA_TEMPERATURE = initialize_ollama()
 EMBEDDING_MODEL = initialize_embedding_model()
 (
     QDRANT_CLIENT,
-    QDRANT_COUNT_RESULT_SEARCH,
+    QDRANT_LIMIT_RESULT_SEARCH,
     QDRANT_COUNT_DOCUMENT_FOR_RAG,
     QDRANT_BASE_TEXT
 ) = initialize_qdrant()
-CHUNK_SIZE, CHUNK_OVERLAP = initialize_chunk()
+CHUNK_SIZE, CHUNK_OVERLAP, CHUNK_NOT_EXTRACT_SYMBOLS = initialize_chunk()
