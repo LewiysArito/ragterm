@@ -9,7 +9,7 @@ from langchain_core.documents import Document
 
 from config import (
     QDRANT_CLIENT, EMBEDDING_MODEL,
-    QDRANT_LIMIT_RESULT_SEARCH, CHUNK_NOT_EXTRACT_SYMBOLS
+    QDRANT_LIMIT_RESULT_SEARCH, QDRANT_COUNT_DOCUMENT_FOR_RAG, CHUNK_NOT_EXTRACT_SYMBOLS, 
 )
 
 @dataclass(frozen=True)
@@ -249,6 +249,23 @@ class QdrantRepository(AbstractVectorDB):
             "number_page": hit.payload.get("number_page", ""),
             "type": hit.payload.get("type", "chunk")
         } for hit in search_result]
+
+    def get_relevant_documents(
+        self,
+        collection: str,
+        query: str,
+        max_pages = QDRANT_COUNT_DOCUMENT_FOR_RAG,
+    )->List[int]:
+        """Extract unique page numbers from search results for RAG context."""
+        search_results = self.search(collection, query)
+        
+        unique_pages = list(set([
+            int(result["number_page"]) 
+            for result in search_results
+            if result.get("number_page")
+        ]))
+        
+        return unique_pages[:max_pages]
 
     def get_all_collections(self) -> list[str]:
         """
