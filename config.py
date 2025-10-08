@@ -55,7 +55,7 @@ def initialize_embedding_model()->SentenceTransformer:
             logger.error(f"Failed to download model: {download_error}")
             raise
 
-def initialize_qdrant()->Tuple[QdrantClient, int, int, str]:
+def initialize_qdrant()->Tuple[QdrantClient, int, int]:
     QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
     QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
     QDRANT_LIMIT_RESULT_SEARCH =  int(os.getenv("QDRANT_LIMIT_RESULT_SEARCH", 12))
@@ -73,12 +73,12 @@ def initialize_qdrant()->Tuple[QdrantClient, int, int, str]:
         ))
 
         logger.info(f"Successfully connected to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}")
-        return (client, QDRANT_LIMIT_RESULT_SEARCH, QDRANT_COUNT_DOCUMENT_FOR_RAG, QDRANT_USE_GUARD)
+        return (client, QDRANT_LIMIT_RESULT_SEARCH, QDRANT_COUNT_DOCUMENT_FOR_RAG)
     except Exception as e:
         logger.error(f"Failed to connect to Qdrant: {e}")
         raise
 
-def initialize_ollama()->Tuple[OllamaClient, str, float]:
+def initialize_ollama()->Tuple[OllamaClient, str, float, str]:
     OLLAMA_HOST = os.getenv("OLLAMA_HOST", "localhost")
     OLLAMA_PORT = int(os.getenv("OLLAMA_PORT", 11434)) 
     OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
@@ -122,7 +122,7 @@ def initialize_ollama()->Tuple[OllamaClient, str, float]:
         client.list()
         logger.info(f"Successfully connected to Ollama at {OLLAMA_HOST}:{OLLAMA_PORT}")
         logger.debug(f"Ollama model is '{OLLAMA_MODEL}' and temperature param equal {OLLAMA_TEMPERATURE}")
-        return (client, OLLAMA_MODEL, OLLAMA_TEMPERATURE) 
+        return (client, OLLAMA_MODEL, OLLAMA_TEMPERATURE, OLLAMA_TEMPLATE_TEXT) 
     except Exception as e:
         logger.error(f"Failed to connect to Ollama: {e}")
         raise
@@ -145,12 +145,11 @@ def get_document_dir() -> str:
     logger.info(f"Document directory: {DOCUMENT_DIR}")
     return DOCUMENT_DIR
 
-OLLAMA_CLIENT, OLLAMA_MODEL, OLLAMA_TEMPERATURE = initialize_ollama()
+OLLAMA_CLIENT, OLLAMA_MODEL, OLLAMA_TEMPERATURE, OLLAMA_TEMPLATE_TEXT = initialize_ollama()
 EMBEDDING_MODEL = initialize_embedding_model()
 (
     QDRANT_CLIENT,
     QDRANT_LIMIT_RESULT_SEARCH,
-    QDRANT_COUNT_DOCUMENT_FOR_RAG,
-    QDRANT_BASE_TEXT
+    QDRANT_COUNT_DOCUMENT_FOR_RAG
 ) = initialize_qdrant()
 CHUNK_SIZE, CHUNK_OVERLAP, CHUNK_NOT_EXTRACT_SYMBOLS = initialize_chunk()

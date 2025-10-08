@@ -7,3 +7,4 @@ __pycache__
 files
 *.log
 text_prompt.txt
+.DS_STORE
