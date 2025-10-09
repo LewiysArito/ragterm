@@ -69,7 +69,7 @@ class AbstractVectorDB(abc.ABC):
 
 class QdrantRepository(AbstractVectorDB):
     """
-    Implementation for working with Qdrant
+    Implementation for working with Qdrant vector database
     """
 
     def __init__(self, 
@@ -80,7 +80,8 @@ class QdrantRepository(AbstractVectorDB):
         self.model = model
     
     def _clean_text(self, text: str, max_length: int = 2000,
-        single_letter_words = CHUNK_NOT_EXTRACT_SYMBOLS):
+        single_letter_words = CHUNK_NOT_EXTRACT_SYMBOLS
+    ):
         """
         Function text cleaning
         """
@@ -129,13 +130,13 @@ class QdrantRepository(AbstractVectorDB):
 
     def _clean_russian_text(self, text: str) -> str:
         """
-        Cleans Russian text
+        Cleans Russian text by applying specific rules
         """
         return self._clean_text(text, single_letter_words=["а", "в", "к", "о", "с", "у", "и"])
     
     def _clean_english_text(self, text: str) -> str:
         """
-        Cleans English text
+        Cleans English text by applying specific rules
         """
         return self._clean_text(text)
     
@@ -155,7 +156,7 @@ class QdrantRepository(AbstractVectorDB):
     def upload_chunks(self, collection: str, chunks: List[CustomChunk], source: str) -> None:
     
         """
-        Uploads chunks to the vector database
+        Uploads chunks of text to the vector database
         """
         texts = []
         clean_chunks: List[CustomChunk] = []
@@ -272,11 +273,28 @@ class QdrantRepository(AbstractVectorDB):
         Retrieves all collections from the vector database
         """
         return [collection.name for collection in self.client.get_collections().collections]
+    
+    def delete_collection(self, collection_name: str)->bool:
+        """
+        Delete collection from vector database
+        """
+        return self.client.delete_collection(collection_name)
 
+    def delete_collections(self, collections_name: str) -> bool:
+        """
+        Deletes multiple collections from the vector database
+        """
+        deleted_collections: List[str] = []
+        for collection_name in collections_name:
+            self.client.delete_collection(collection_name)
+            deleted_collections.append(collection_name)
+
+        return deleted_collections
+    
     def get_chunk_by_page(
         self,
+        collection: str,
         page: int,
-        collection: str
     ):
         """
         Retrieves a chunk (page) of a document

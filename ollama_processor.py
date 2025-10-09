@@ -45,7 +45,7 @@ class OllamaProcessor(AbstractLLMClient):
         query: str,
         sources: List[str],
         template: str = OLLAMA_TEMPLATE_TEXT
-    ):
+    )->str:
         """Generate prompt from template"""
         prompt = template.replace("{query}", query)
         prompt = prompt.replace("{sources}", sources)
