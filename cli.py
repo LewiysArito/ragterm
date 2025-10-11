@@ -4,6 +4,9 @@ import re
 
 document_vector = DocumentVector()
 
+class CliArgumentsError(Exception):
+    pass
+
 class CommandHandler:
     """
     Command handler
@@ -19,7 +22,7 @@ class CommandHandler:
             "parameters" : {
                 "description": "Shows the parameters and description of each of them",
                 "function": self._parameters_command,
-                "args" : {"command": "Name of command to show parameters for "} 
+                "args" : {"command": "Name of command to show parameters"} 
             },
             "help": {
                 "description": "Show help message", 
@@ -62,10 +65,29 @@ class CommandHandler:
                 "args": {"filename": "Search source file", "query": "Search query"}
             }
         }
-    
+
+    def parser_args_positional(self, text: str) -> List[str]:
+        pattern = r"['\"]([^'\"]+)['\"]|(\S+)"
+        matches = re.findall(pattern, text)
+
+        result = []
+        for match in matches:
+            if match[0]:
+                result.append(match[0])
+            elif match[1]:
+                result.append(match[1])
+        
+        if not sorted(" ".join(result)) == sorted(text):
+            raise CliArgumentsError("Invalid positional arguments format")
+
+        return result
+
     def _commands_items(self)->List[str]:
         return list(self.commands.keys())
-
+    
+    def _parameters_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        """Handle parameters"""
+    
     def _exit_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
         """Handle exit command"""
         print("User requested exit")
@@ -91,7 +113,7 @@ class CommandHandler:
         return True
     
     def _upload_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
-        """Handle upload command"""        
+        """Handle upload command"""
 
         if isinstance(args, dict) and args.get("filename"):
             document_vector.upload_file(args["filename"])
@@ -105,9 +127,20 @@ class CommandHandler:
         return True
     
     def _delete_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        
         return True
 
     def _collections_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        
+        if isinstance(args, dict) and args.get("filename"):
+            document_vector.upload_file(args["filename"])
+            print(f"File {args['filename']} uploaded successfully")
+        elif isinstance(args, list) and args and args[0]:
+            document_vector.upload_file(args[0])
+            print(f"File {args[0]} uploaded successfully")
+        else:
+            print("No valid filename provided")
+
         return document_vector.show_all_collections()
 
     def _chunks_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
@@ -161,13 +194,21 @@ def start_cli():
             
             if not user_input:
                 continue
-                
-            parts = user_input.split()
-            command_name = parts[0].lower()
-            args = parts[1:] if len(parts) > 1 else []
-
-            is_active = handler.execute_command(command_name, args)
             
+            parts = user_input.split()
+            command_name = parts[0]
+            
+            if len(parts) == 1:
+                args = None
+            else:
+                string_args = " ".join(parts[1:])
+                args = handler.parser_args(string_args)
+            
+            is_active = handler.execute_command(command_name, args)
+
+        except CliArgumentsError as e:
+            print(f"\n{e}")
+
         except KeyboardInterrupt:
             print("\nInterrupted by user. Goodbye!")
             is_active = False
