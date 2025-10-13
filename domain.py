@@ -1,6 +1,7 @@
 import os
-from typing import List, Optional
+import shutil
 
+from typing import List, Optional
 from ollama_processor import OllamaProcessor, AbstractLLMClient
 from qdrant_repository import CustomPage, QdrantRepository, CustomChunk, AbstractVectorDB
 from config import get_document_dir
@@ -53,20 +54,26 @@ class DocumentVector:
         """Transforms basename to collection pages"""
         return basename + self.PAGE_COLLECTION_ENDING
 
-    def upload_file(self, filename: str):
+    def upload_file(self, file_path: str):
         """
         Upload a file to the vector database.
 
         Args:
-            file_name (str): The name of the file to upload.
+            file_path (str): Path from which file will be downloaded
         """
 
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File {file_path} not found")
+        
+        filename = os.path.basename(file_path)
         basename = self._get_collection_basename(filename)
         col_pages_name = self._get_pages_collection_name(basename)
         col_chunks_name = self._get_chunks_collection_name(basename)
         
+        new_path = shutil.copy2(file_path, os.path.join(self.filedir, filename))
+
         documents = self.pdf_processor.load_and_split_file(
-            filename
+            new_path
         )
 
         pages = [CustomPage(document_page.metadata.get("page", 0), document_page.page_content) 
@@ -144,7 +151,7 @@ class DocumentVector:
 
         os.remove(file_path)
 
-    def clear_all(self):
+    def clear_all(self)->list[str]:
         """
         Deleted from vector database all documents, loaded for rag
         """
@@ -155,12 +162,15 @@ class DocumentVector:
             self.vector_rep.get_all_collections()
         ))
 
-        self.vector_rep.delete_collections(collections)
+        deleted_collections = self.vector_rep.delete_collections(collections)
 
         for filename in os.listdir(self.filedir):
             file_path = os.path.join(self.filedir, filename)
             if os.path.isfile(file_path):
                 os.remove(file_path)
+        
+        return deleted_collections
+
 
     def show_all_collections(self)->List[str]:
         """Show all collections for rag"""

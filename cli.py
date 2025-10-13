@@ -37,7 +37,7 @@ class CommandHandler:
             "upload" : {
                 "description": "Upload file and create collections assotiated with it",
                 "function": self._upload_command,
-                "args" : {"filepath": "Path to file for upload"}
+                "args" : {"file_path": "Path to file for upload"}
             },
             "delete" : {
                 "description": "Delete collections associated with file",
@@ -69,15 +69,15 @@ class CommandHandler:
     def parser_args_positional(self, text: str) -> List[str]:
         pattern = r"['\"]([^'\"]+)['\"]|((?!--)[\S]+)"
         matches = re.findall(pattern, text)
-
         result = []
+        
         for match in matches:
             if match[0]:
                 result.append(match[0])
             elif match[1]:
                 result.append(match[1])
-        
-        if not sorted(" ".join(result)) == sorted(text):
+
+        if not sorted(" ".join(result)) == sorted(text.strip("'\"")):
             return None
 
         return result
@@ -161,6 +161,16 @@ class CommandHandler:
         return True
 
     def _clear_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        
+        collections = document_vector.clear_all()
+        if not collections:
+            print("Collections is empty")
+            return True
+
+        print("Deleted collections:")
+        for collection in collection:
+            print(collection)
+        
         return True
 
     def _echo_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
@@ -175,15 +185,19 @@ class CommandHandler:
         """Handle upload command"""
 
         if isinstance(args, dict) and args.get("filename"):
-            filepath = args["filename"]
-            print(f"File {args['filename']} uploaded successfully")
+            file_path = args["filename"]
         elif isinstance(args, list) and args and args[0]:
-            filepath = args[0]
-            print(f"File {args[0]} uploaded successfully")
+            file_path = args[0]
         else:
             print("No valid filename provided")
         
-        document_vector.upload_file(filepath)
+        try:
+            document_vector.upload_file(file_path)
+        except FileNotFoundError as e:
+            print(e)
+            return True
+            
+        print(f"File {file_path} uploaded successfully")
         return True
     
     def _delete_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
@@ -191,6 +205,11 @@ class CommandHandler:
         return True
 
     def _collections_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        collections = document_vector.show_all_collections()
+        if not collections:
+            print("Program has not collections")
+            return True
+        
         print("You have next collections created this program:")
         for collection_name in document_vector.show_all_collections():
             print(collection_name)

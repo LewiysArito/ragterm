@@ -280,7 +280,7 @@ class QdrantRepository(AbstractVectorDB):
         """
         return self.client.delete_collection(collection_name)
 
-    def delete_collections(self, collections_name: str) -> bool:
+    def delete_collections(self, collections_name: str) -> List[str]:
         """
         Deletes multiple collections from the vector database
         """

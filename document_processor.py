@@ -10,7 +10,7 @@ class AbstractDocumentProcessor(abc.ABC):
     """Abstract class for handling documents"""
     
     @abc.abstractmethod
-    def load_and_split_file(self, chunks: List[Document], source: str) -> None:
+    def load_and_split_file(self, source: str) -> None:
         """Loads document and returns page content and chunks"""
         pass
 
