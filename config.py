@@ -11,6 +11,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def off_loggers() -> None: 
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING) 
+    logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 def initialize_logger() -> logging.Logger:
     LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, LOG_LEVEL_NAME, logging.INFO)
@@ -23,8 +29,9 @@ def initialize_logger() -> logging.Logger:
             logging.FileHandler('app.log', encoding='utf-8')
         ]
     )
-    
+    off_loggers()
     logger = logging.getLogger(__name__)
+    
     logger.info(f"Logger initialized with level: {LOG_LEVEL_NAME}")
     return logger 
 
