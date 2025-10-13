@@ -67,7 +67,7 @@ class CommandHandler:
         }
 
     def parser_args_positional(self, text: str) -> List[str]:
-        pattern = r"['\"]([^'\"]+)['\"]|(\S+)"
+        pattern = r"['\"]([^'\"]+)['\"]|((?!--)[\S]+)"
         matches = re.findall(pattern, text)
 
         result = []
@@ -78,15 +78,74 @@ class CommandHandler:
                 result.append(match[1])
         
         if not sorted(" ".join(result)) == sorted(text):
-            raise CliArgumentsError("Invalid positional arguments format")
+            return None
 
         return result
+    
+    def parser_args_named(self, text: str) -> Optional[Dict[str, str]]:
+        pattern = r'--([a-zA-Z_][a-zA-Z0-9_]*)=([^\"\'\s]+|[\"]([^\"]*)[\"]|[\']([^\']*)[\'])'
+        matches = re.findall(pattern, text)
+        
+        result = {}
+        for match in matches:
+            key = match[0]
+            if match[2]:
+                value = match[2]
+            elif match[3]:
+                value = match[3]
+            else:
+                value = match[1]
+            
+            result[key] = value
+        
+        reconstructed_parts = []
+        for key, value in result.items():
+            reconstructed_parts.append(f"--{key}={value}")
+        
+        if not sorted(text) == sorted(" ".join(reconstructed_parts)):
+            return None
+        
+        return result
 
+    def parser_args(self, text:str):
+        args = self.parser_args_named(text) or self.parser_args_positional(text) 
+                
+        if not args:
+            raise CliArgumentsError("Arguments not is named or positional")
+
+        return args
+            
     def _commands_items(self)->List[str]:
         return list(self.commands.keys())
     
     def _parameters_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
         """Handle parameters"""
+        
+        command = None
+        if isinstance(args, dict) and args.get("command"):
+            command = args.get("command")
+        elif isinstance(args, list) and args and args[0]:
+            command = args[0]
+        else:
+            print("No provided command parameter")
+            return True
+
+        item_command = self.commands.get(command)
+        if not item_command:
+            print(f"Command with name='{command}' not exists")
+            return True
+        
+        parameters = item_command["args"]
+
+        if not parameters:
+            print(f"'{command}' has not parameters")    
+            return True
+
+        print(f"'{command}' parameters\n")
+        for key, value in item_command["args"].items():
+            print(f"--{key} - {value}")
+        
+        return True
     
     def _exit_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
         """Handle exit command"""
@@ -116,14 +175,15 @@ class CommandHandler:
         """Handle upload command"""
 
         if isinstance(args, dict) and args.get("filename"):
-            document_vector.upload_file(args["filename"])
+            filepath = args["filename"]
             print(f"File {args['filename']} uploaded successfully")
         elif isinstance(args, list) and args and args[0]:
-            document_vector.upload_file(args[0])
+            filepath = args[0]
             print(f"File {args[0]} uploaded successfully")
         else:
             print("No valid filename provided")
         
+        document_vector.upload_file(filepath)
         return True
     
     def _delete_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
@@ -131,17 +191,11 @@ class CommandHandler:
         return True
 
     def _collections_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        print("You have next collections created this program:")
+        for collection_name in document_vector.show_all_collections():
+            print(collection_name)
         
-        if isinstance(args, dict) and args.get("filename"):
-            document_vector.upload_file(args["filename"])
-            print(f"File {args['filename']} uploaded successfully")
-        elif isinstance(args, list) and args and args[0]:
-            document_vector.upload_file(args[0])
-            print(f"File {args[0]} uploaded successfully")
-        else:
-            print("No valid filename provided")
-
-        return document_vector.show_all_collections()
+        return True
 
     def _chunks_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
         return True
@@ -203,12 +257,11 @@ def start_cli():
             else:
                 string_args = " ".join(parts[1:])
                 args = handler.parser_args(string_args)
-            
+
             is_active = handler.execute_command(command_name, args)
 
         except CliArgumentsError as e:
             print(f"\n{e}")
-
         except KeyboardInterrupt:
             print("\nInterrupted by user. Goodbye!")
             is_active = False
