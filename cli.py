@@ -189,7 +189,7 @@ class CommandHandler:
         elif isinstance(args, list) and args and args[0]:
             file_path = args[0]
         else:
-            print("No valid filename provided")
+            print("No valid file path provided")
             return True
 
         try:
@@ -239,23 +239,39 @@ class CommandHandler:
         if isinstance(args, dict) and args.get("filename") and args.get("query"):
             filename = args["filename"]
             query = args["query"]
-        elif isinstance(args, list) and args and args[0]:
+        elif isinstance(args, list) and args and args[0] and args[1]:
             filename = args[0]
             query = args[1]
         else:
-            print("No valid filename provided")
+            print("No valid filename or query provided")
             return True
         
         collections = document_vector.find_chunks_from_file(filename, query)
         
-        for collection, num in enumerate(collections, 1):
+        for num, collection in enumerate(collections, 1):
             print(f"{num} relevant chunk:\n")
-            print(collection + '\n\n')
+            print(str(collection) + '\n\n')
 
         return True
 
     def _result_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
         "Handle get rag results command"
+        if isinstance(args, dict) and args.get("filename") and args.get("query"):
+            filename = args["filename"]
+            query = args["query"]
+        elif isinstance(args, list) and args and args[0] and args[1]:
+            filename = args[0]
+            query = args[1]
+        else:
+            print("No valid filename and query provided")
+            return True
+        
+        response = document_vector.rag_search_from_file(filename, query)
+        
+        print()
+        print("Response:")
+        print(response)
+
         return True
 
     def execute_command(self, command_name, args: Optional[Union[Dict[str, str], List[str]]] = None):
