@@ -70,14 +70,14 @@ class CommandHandler:
         pattern = r"['\"]([^'\"]+)['\"]|((?!--)[\S]+)"
         matches = re.findall(pattern, text)
         result = []
-        
+
         for match in matches:
             if match[0]:
                 result.append(match[0])
             elif match[1]:
                 result.append(match[1])
 
-        if not sorted(" ".join(result)) == sorted(text.strip("'\"")):
+        if not sorted(" ".join(result)) == sorted(text.replace('"', '').replace("'", "")):
             return None
 
         return result
@@ -85,8 +85,8 @@ class CommandHandler:
     def parser_args_named(self, text: str) -> Optional[Dict[str, str]]:
         pattern = r'--([a-zA-Z_][a-zA-Z0-9_]*)=([^\"\'\s]+|[\"]([^\"]*)[\"]|[\']([^\']*)[\'])'
         matches = re.findall(pattern, text)
-        
         result = {}
+
         for match in matches:
             key = match[0]
             if match[2]:
@@ -184,13 +184,14 @@ class CommandHandler:
     def _upload_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
         """Handle upload command"""
 
-        if isinstance(args, dict) and args.get("filename"):
-            file_path = args["filename"]
+        if isinstance(args, dict) and args.get("file_path"):
+            file_path = args["file_path"]
         elif isinstance(args, list) and args and args[0]:
             file_path = args[0]
         else:
             print("No valid filename provided")
-        
+            return True
+
         try:
             document_vector.upload_file(file_path)
         except FileNotFoundError as e:
@@ -201,10 +202,26 @@ class CommandHandler:
         return True
     
     def _delete_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        """Handle delete command"""
+        if isinstance(args, dict) and args.get("filename"):
+            filename = args["filename"]
+        elif isinstance(args, list) and args and args[0]:
+            filename = args[0]
+        else:
+            print("No valid filename provided")
+            return True
+
+        try:
+            document_vector.delete_rag_file(filename)
+        except FileNotFoundError as e:
+            print(e)
+            return True
         
+        print(f"File {filename} and related collections was deleted successfully")
         return True
 
     def _collections_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        """Handle get collections command"""
         collections = document_vector.show_all_collections()
         if not collections:
             print("Program has not collections")
@@ -217,9 +234,28 @@ class CommandHandler:
         return True
 
     def _chunks_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        "Handle get chunks command"
+        
+        if isinstance(args, dict) and args.get("filename") and args.get("query"):
+            filename = args["filename"]
+            query = args["query"]
+        elif isinstance(args, list) and args and args[0]:
+            filename = args[0]
+            query = args[1]
+        else:
+            print("No valid filename provided")
+            return True
+        
+        collections = document_vector.find_chunks_from_file(filename, query)
+        
+        for collection, num in enumerate(collections, 1):
+            print(f"{num} relevant chunk:\n")
+            print(collection + '\n\n')
+
         return True
 
     def _result_command(self, args: Optional[Union[Dict[str, str], List[str]]] = None):
+        "Handle get rag results command"
         return True
 
     def execute_command(self, command_name, args: Optional[Union[Dict[str, str], List[str]]] = None):
