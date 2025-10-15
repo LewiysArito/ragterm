@@ -61,7 +61,7 @@ class AbstractVectorDB(abc.ABC):
         self,
         page: int,
         collection: str
-    ):
+    )->Optional[str]:
         """
         Retrieves a chunk by page from the vector database
         """
@@ -259,14 +259,20 @@ class QdrantRepository(AbstractVectorDB):
     )->List[int]:
         """Extract unique page numbers from search results for RAG context."""
         search_results = self.search(collection, query)
-        
-        unique_pages = list(set([
+        pages = list([
             int(result["number_page"]) 
             for result in search_results
             if result.get("number_page")
-        ]))
+        ])
+
+        unique_pages = []
+        current_index = 0
+        while len(unique_pages) < max_pages and len(pages) > current_index:  
+            if pages[current_index] not in unique_pages:
+                unique_pages.append(pages[current_index])
+            current_index += 1
         
-        return unique_pages[:max_pages]
+        return unique_pages
 
     def get_all_collections(self) -> list[str]:
         """
@@ -295,11 +301,10 @@ class QdrantRepository(AbstractVectorDB):
         self,
         collection: str,
         page: int,
-    ):
+    )->Optional[str]:
         """
         Retrieves a chunk (page) of a document
         """
-
         search_result = self.client.scroll(
             collection_name=collection,
             scroll_filter=models.Filter(
@@ -311,4 +316,8 @@ class QdrantRepository(AbstractVectorDB):
             ),
             limit=1,
         )
-        return search_result[0]
+
+        if not search_result:
+            return None
+        
+        return search_result[0][0].payload["text"]

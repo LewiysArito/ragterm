@@ -66,7 +66,7 @@ def initialize_qdrant()->Tuple[QdrantClient, int, int]:
     QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
     QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
     QDRANT_LIMIT_RESULT_SEARCH =  int(os.getenv("QDRANT_LIMIT_RESULT_SEARCH", 12))
-    QDRANT_COUNT_DOCUMENT_FOR_RAG = int(os.getenv("QDRANT_COUNT_RESULT_SEARCH", 3))
+    QDRANT_COUNT_DOCUMENT_FOR_RAG = int(os.getenv("QDRANT_COUNT_DOCUMENT_FOR_RAG", 3))
     QDRANT_USE_GUARD = os.getenv("QDRANT_USE_GUARD") in ["True", "1", "true"]
     
     try:

@@ -119,7 +119,9 @@ class DocumentVector:
 
         texts = []
         for page in pages:
-            texts.append(self.vector_rep.get_chunk_by_page(page, col_pages_name))
+            text = self.vector_rep.get_chunk_by_page(col_pages_name, page)
+            if text:
+                texts.append(text)
 
         result = self.llm_processor.generate_prompt_from_template(
             query,
